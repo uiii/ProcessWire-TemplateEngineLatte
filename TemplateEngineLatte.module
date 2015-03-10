@@ -1,0 +1,111 @@
+<?php
+
+require_once __DIR__ . '/LatteEngine.php';
+
+/**
+ * TemplateEngineLatte
+ *
+ * @author Richard Jedlička <jedlicka.r@gmail.com>
+ * @license BSD
+ * @version 1.0.0
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2014 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://processwire.com
+ *
+ */
+class TemplateEngineLatte extends WireData implements Module
+{
+	const LATTE_VERSION = '2.3.0';
+	const LATTE_URL = 'https://github.com/nette/latte/archive/v%s.zip';
+	const CACHE_DIR = 'TemplateEngineLatte_cache/';
+
+	/**
+	 * @var Latte
+	 */
+	protected $latte;
+
+	/**
+	 * @var array;
+	 */
+	protected $templateParams;
+
+	/**
+	 * @return array
+	 */
+	public static function getModuleInfo()
+	{
+		return array(
+			'title' => 'Template Engine Latte',
+			'summary' => 'Latte templates (http://latte.nette.org) for the TemplateEngineFactory',
+			'version' => 100,
+			'author' => 'Richard Jedlička',
+			'href' => '',
+			'singular' => false,
+			'autoload' => false,
+			'requires' => array('TemplateEngineFactory'),
+		);
+	}
+
+	/**
+	 * @return array
+	 */
+	public static function getDefaultConfig()
+	{
+		$config = parent::getDefaultConfig();
+		return array_merge($config, array(
+			'template_files_suffix' => 'latte',
+		));
+	}
+	
+	public function ___install()
+	{
+		$success = $this->_downloadLatte();
+
+		if (! $success) {
+			throw new WireException("Unable to download Latte dependency");
+		}
+
+		$engine = new LatteEngine();
+		$engine->install();
+	}
+
+	public function ___uninstall()
+	{
+		$engine = new LatteEngine();
+		$engine->uninstall();
+
+		wireRmdir(__DIR__ . '/latte', true);
+	}
+
+	protected function _downloadLatte()
+	{
+		$url = sprintf(self::LATTE_URL, self::LATTE_VERSION);
+
+		$latteZip = __DIR__ . '/latte.zip';
+		$latteDir = __DIR__ . sprintf('/latte-%s', self::LATTE_VERSION);
+
+		$success = false;
+
+		try {
+			$http = new WireHttp();
+			$latteZip = $http->download($url, $latteZip);
+			$this->message(sprintf($this->_('Downloaded ZIP file: %s (%d bytes)'), $url, filesize($latteZip)));
+
+			wireUnzipFile($latteZip, __DIR__);
+
+			rename($latteDir, __DIR__ . '/latte');
+
+			$success = true;
+		} catch(Exception $e) {
+			$this->error($e->getMessage());
+			$success = false;
+		}
+
+		@unlink($latteZip);
+
+		return $success;
+	}
+}
